@@ -55,6 +55,39 @@ flowchart LR
 
 The system does not convert a scanner timeout or empty report into `PASS`. A repaired proposal is a new change with its own identity and verification record.
 
+## Implemented tech stack and trust boundaries
+
+```mermaid
+flowchart TB
+    Operator[Operator browser] --> UI[React + TypeScript + Vite]
+    UI --> API[Python + FastAPI API]
+    API --> DB[(PostgreSQL: ledger, jobs, evidence, audit)]
+    API --> Worker[Python worker and monitor]
+    Worker --> Model[Local Ollama model: Builder / Verifier contexts]
+    Worker --> Checks[Trusted tests + Gitleaks + Semgrep + Trivy]
+    Worker --> Sandbox[Networkless Docker policy sandbox]
+    Worker --> Gate[Deterministic release gate]
+    Gate -->|passing evidence| Approval[Human approval]
+    Approval --> Deployer[Separate deployer identity]
+    Deployer --> Target[Local Docker release target]
+    Target --> Monitor[Health and fault monitoring]
+    Monitor -->|incident| Recovery[Rollback or restart]
+    Monitor --> DB
+    Recovery --> DB
+    Worker --> DB
+```
+
+| Layer | Technology | Current role |
+| --- | --- | --- |
+| Operator console | React, TypeScript, Vite | Local evidence and decision UI |
+| API, jobs and monitoring | Python, FastAPI | Sessions, verification, release and recovery workflow |
+| Durable state | PostgreSQL | Ledger, jobs, evidence and audit records |
+| Local inference | Ollama, `qwen3.5:9b` | Builder and Verifier in separate contexts; not independent models |
+| Verification | Trusted Python tests, Gitleaks, Semgrep, Trivy | Policy checks and scanner evidence |
+| Isolation and release | Docker | Networkless policy tests and local deployment target |
+
+All components run on one operator-controlled machine. The diagram does not imply production isolation, bank integration or independent attestation.
+
 ## Run locally
 
 Prerequisites: macOS ARM64 setup used for validation, Python 3.13, `uv`, Node 22, Docker Desktop, Ollama with `qwen3.5:9b`, and at least 3 GB free disk. First-time dependency, image, and dataset downloads need internet access; model calls run locally.
