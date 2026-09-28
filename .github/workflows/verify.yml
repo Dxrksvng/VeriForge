@@ -1,0 +1,41 @@
+name: Verify
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: veriforge
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: veriforge
+        ports: ["55432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U veriforge"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      VF_DATABASE_URL: postgresql://veriforge:ci-only-password@127.0.0.1:55432/veriforge
+      UV_CACHE_DIR: .uv-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.13'
+      - run: python scripts/bootstrap.py
+      - run: uv sync --frozen
+      - run: uv run ruff check src tests scripts
+      - run: uv run pytest -q --junitxml=artifacts/tests.xml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci && npm run build
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-evidence
+          path: artifacts/tests.xml
+          retention-days: 7

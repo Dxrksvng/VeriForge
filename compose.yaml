@@ -1,0 +1,20 @@
+name: veriforge
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: veriforge
+      POSTGRES_PASSWORD: ${VF_DB_PASSWORD:?Run scripts/bootstrap.py first}
+      POSTGRES_DB: veriforge
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - veriforge-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U veriforge"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    restart: unless-stopped
+volumes:
+  veriforge-db:

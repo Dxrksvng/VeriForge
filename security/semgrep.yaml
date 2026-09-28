@@ -1,0 +1,23 @@
+rules:
+  - id: vf-dynamic-execution
+    languages: [python]
+    severity: ERROR
+    message: Dynamic execution is prohibited in payment policy code.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+      - pattern: __import__(...)
+  - id: vf-process-execution
+    languages: [python]
+    severity: ERROR
+    message: Payment policy cannot launch processes.
+    pattern-either:
+      - pattern: os.system(...)
+      - pattern: subprocess.$METHOD(...)
+  - id: vf-network-access
+    languages: [python]
+    severity: ERROR
+    message: Payment policy cannot perform network requests.
+    pattern-either:
+      - pattern: requests.$METHOD(...)
+      - pattern: httpx.$METHOD(...)
