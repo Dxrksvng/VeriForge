@@ -2,7 +2,7 @@
 
 ## อัปเดตเอกสาร repository — 28 กันยายน 2026
 
-ปรับ README เพื่ออธิบาย local simulation, วิธีรัน, ขอบเขตหลักฐาน และข้อจำกัดก่อนเตรียมขึ้น GitHub แบบ private การเปลี่ยนแปลงรอบนี้เป็นเอกสาร/การคัดไฟล์ขึ้น repo; รัน `.venv/bin/pytest -q` ได้ 33 passed, 2 dependency warnings แต่ยังไม่ได้รัน lifecycle ใหม่และไม่เปลี่ยนสถานะ Engineering หรือ Learning ด้านล่าง
+ปรับ README เพื่ออธิบาย local simulation, วิธีรัน, ขอบเขตหลักฐาน และข้อจำกัดสำหรับผู้อ่าน GitHub การเปลี่ยนแปลงรอบนี้เป็นเอกสาร/การคัดไฟล์ขึ้น repo; รัน `.venv/bin/pytest -q` ได้ 33 passed, 2 dependency warnings และ GitHub workflow ผ่าน แต่ยังไม่ได้รัน lifecycle ใหม่และไม่เปลี่ยนสถานะ Engineering หรือ Learning ด้านล่าง
 
 อัปเดต: 27 กันยายน 2026 — local production-simulation v2 accepted
 

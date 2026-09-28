@@ -2,7 +2,11 @@
 
 ### Evidence-driven assurance and recovery for AI-generated changes
 
+[![Verify](https://github.com/Dxrksvng/VeriForge/actions/workflows/verify.yml/badge.svg)](https://github.com/Dxrksvng/VeriForge/actions/workflows/verify.yml)
+
 VeriForge is a **local production simulation** for a narrow financial-policy workflow. It takes a proposed change through isolated checks, evidence review, a deterministic release gate, human approval, local Docker deployment, runtime monitoring, and recovery. All payments use test funds; the system is not connected to a bank or payment provider.
+
+> ระบบนี้สาธิตการตรวจ change ที่ AI เสนอโดยผูกผลทดสอบกับ source และ artifact จริง ก่อนให้คนอนุมัติและ deploy ในเครื่อง ขอบเขตคือ sandbox ทางการเงิน ไม่ใช่ระบบรับจ่ายเงินจริง
 
 ```text
 Proposal → Trusted tests & scanners → Evidence-bound decision
@@ -20,11 +24,44 @@ Proposal → Trusted tests & scanners → Evidence-bound decision
 
 The verified scope is **one local tenant and two financial-policy functions**. Builder and Verifier currently use the same local model with different contexts, so their errors are not statistically independent. See [validation evidence](docs/VALIDATION.md) for what was run and what those results do *not* establish.
 
+## Why this workflow exists
+
+An AI-generated patch can look plausible while breaking a financial invariant, weakening a test, or changing behavior after deployment. VeriForge keeps the candidate patch separate from trusted checks and makes the release decision depend on recorded evidence. A human approves only the exact source and image that passed those checks.
+
+The supported patch surface is deliberately small: `fee_minor` and `should_post` in a constrained Python policy module. AI cannot rewrite the trusted tests, scanner policy, deployment code, or financial ledger. Expanding to arbitrary repositories would require stronger execution isolation and a broader trust model.
+
+## End-to-end decision path
+
+```mermaid
+flowchart LR
+    A[Proposal] --> B[Durable verification job]
+    B --> C[Trusted tests + scanners]
+    C --> D[Evidence tied to source and image]
+    D --> E[Verifier review]
+    E --> F{Deterministic gate}
+    F -->|Pass| G[Human approval]
+    F -->|Blocked / inconclusive| H[Inspect or repair]
+    G --> I[Deployer releases exact image]
+    I --> J[Health probes + monitor]
+    J --> K[Incident / rollback or restart]
+```
+
+| Decision state | Meaning |
+| --- | --- |
+| `BLOCKED` | A required rule or trusted check failed |
+| `INCONCLUSIVE` | A required check did not produce usable evidence |
+| `NEEDS_HUMAN` | A reviewer decision is required |
+| `AWAITING_APPROVAL` | Checks passed; a different authorized person must approve |
+
+The system does not convert a scanner timeout or empty report into `PASS`. A repaired proposal is a new change with its own identity and verification record.
+
 ## Run locally
 
 Prerequisites: macOS ARM64 setup used for validation, Python 3.13, `uv`, Node 22, Docker Desktop, Ollama with `qwen3.5:9b`, and at least 3 GB free disk. First-time dependency, image, and dataset downloads need internet access; model calls run locally.
 
 ```sh
+git clone https://github.com/Dxrksvng/VeriForge.git
+cd VeriForge
 ./run-local.sh
 ```
 
@@ -40,6 +77,20 @@ cd frontend && npm run build
 
 The complete lifecycle verification and data replay commands are in the runbook. Those checks can start containers and use the local model; they are not required merely to read this repository.
 
+## Repository layout
+
+```text
+src/veriforge/        API, financial kernel, identity, assurance, worker, runtime
+frontend/             React operator console and browser checks
+sandbox/              Isolated policy target and acceptance harness
+security/             Scanner policy
+scripts/              Bootstrap, lifecycle checks, evaluation, backup
+tests/                Trusted unit and integration tests
+docs/                 Architecture, runbook, validation, lessons
+```
+
+The API, worker, and monitor share a local PostgreSQL database. The frontend presents evidence and decisions. The release target is a Docker container on the same machine. [Architecture](docs/ARCHITECTURE.md) documents the component and authority boundaries in detail.
+
 ## Example journey
 
 1. Submit a failing policy proposal or load the test fixture.
@@ -49,6 +100,26 @@ The complete lifecycle verification and data replay commands are in the runbook.
 5. Inject a local process-stop fault and inspect the incident and recovery record.
 
 This is a controlled lab. It does not execute arbitrary generated code on a production host and does not move real money.
+
+## Evidence you can inspect
+
+| Check | Recorded local result | What it establishes |
+| --- | --- | --- |
+| Backend tests | 33 passed; 2 dependency warnings | Behavior covered by the current trusted suite |
+| Duplicate payment race | 24 simultaneous same-key requests produced one payment | Idempotency under that local concurrency test |
+| Signed identities | 100/100 requests validated in a local load exercise | Local read-workload behavior, not 100 AI agents |
+| Public-data replay | 500 synthetic payments based on transformed UCI Online Retail amounts | Repeatability of a sandbox workload, not real bank traffic |
+| Lifecycle exercise | AI repair, gate, approval, local deploy, injected fault, recovery | One observed local end-to-end run |
+
+These figures come from [the validation record](docs/VALIDATION.md) and [progress log](docs/PROGRESS.md). The run artifacts are local and excluded from Git because they may contain runtime details. The [GitHub verification workflow](.github/workflows/verify.yml) runs source checks; it does not reproduce the model-driven lifecycle or fault injection.
+
+## Security and data boundaries
+
+- Local role credentials live under `.local/` and are ignored by Git. Do not copy them into issues, screenshots, or commits.
+- The worker runs policy acceptance tests in a restricted, networkless Docker sandbox. The API, worker, and deployer still share the owner's OS account; that is a local-lab limitation.
+- HMAC evidence and audit records help detect changes made without the signing key. They are not independent attestation against a host administrator with that key.
+- Real scanner runs, a public retail benchmark transformed into test amounts, synthetic replay, and injected faults are labelled as different evidence types.
+- Do not aim this sandbox at an external service, actual payment account, or untrusted repository without a separate review.
 
 ## Architecture and evidence
 
